@@ -27,9 +27,12 @@ export default async function TutorCourseBuilderPage({ params }: BuilderPageProp
 
   // Verify tutor is assigned to this course (unless ADMIN)
   if (session.user.role !== 'ADMIN') {
+    const primaryId = (course.primaryTutorId as any)?._id
+      ? (course.primaryTutorId as any)._id.toString()
+      : course.primaryTutorId?.toString();
     const isAssigned =
-      course.primaryTutorId?.toString() === tutorId ||
-      course.assignedTutorIds?.some((id: any) => id.toString() === tutorId);
+      primaryId === tutorId ||
+      course.assignedTutorIds?.some((id: any) => (id?._id || id)?.toString() === tutorId);
     if (!isAssigned) {
       redirect('/tutor/courses?error=UnauthorizedCourse');
     }

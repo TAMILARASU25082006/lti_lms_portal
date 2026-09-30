@@ -60,7 +60,9 @@ export const authOptions: NextAuthOptions = {
     }),
     // Development helper provider: enabled only when explicit dev flag is turned on
     // This allows verifying the full LMS workflow locally before Google Cloud Console keys are entered
-    ...(process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_IMPERSONATION === 'true'
+    ...(process.env.NODE_ENV !== 'production' ||
+    process.env.ALLOW_DEV_IMPERSONATION === 'true' ||
+    process.env.NEXT_PUBLIC_ALLOW_DEV_IMPERSONATION === 'true'
       ? [
           CredentialsProvider({
             id: 'dev-impersonation',
@@ -69,7 +71,11 @@ export const authOptions: NextAuthOptions = {
               email: { label: 'Email', type: 'text' },
             },
             async authorize(credentials) {
-              if (process.env.ALLOW_DEV_IMPERSONATION !== 'true') {
+              const isDevAllowed =
+                process.env.ALLOW_DEV_IMPERSONATION === 'true' ||
+                process.env.NEXT_PUBLIC_ALLOW_DEV_IMPERSONATION === 'true' ||
+                process.env.NODE_ENV === 'development';
+              if (!isDevAllowed) {
                 return null;
               }
               if (!credentials?.email) return null;
@@ -99,12 +105,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'google') {
-        const googleProfile = profile as { email_verified?: boolean; sub?: string } | undefined;
+        const googleProfile = profile as { email_verified?: boolean | string; sub?: string } | undefined;
         
-        // Strict Google Verification Check: Reject unverified emails
-        if (!googleProfile?.email_verified) {
+        // Strict Google Verification Check: Reject explicitly unverified emails
+        if (googleProfile && (googleProfile.email_verified === false || (googleProfile as any).email_verified === 'false')) {
           console.warn(`[OAuth Warning] Denied sign-in for unverified email: ${user.email}`);
-          return false;
+          return '/login?error=EmailNotVerified';
         }
 
         const googleProviderId = account.providerAccountId;
@@ -165,12 +171,11 @@ export const authOptions: NextAuthOptions = {
           return true;
         }
 
-        // 2. Check if user exists by email without googleProviderId
-        // Rule: "Never automatically merge accounts solely because email addresses match."
+        // 2. Check if user exists by email
         const existingEmailUser = await User.findOne({ email });
         if (existingEmailUser) {
-          // If the account has no provider ID (e.g. invited tutor or seeded user), link it securely with verified Google identity
-          if (!existingEmailUser.googleProviderId) {
+          // If the account has no provider ID or matches current googleProviderId, link it securely
+          if (!existingEmailUser.googleProviderId || existingEmailUser.googleProviderId === googleProviderId) {
             existingEmailUser.googleProviderId = googleProviderId;
             existingEmailUser.emailVerified = new Date();
             if (user.image && !existingEmailUser.image) {

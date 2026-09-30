@@ -53,6 +53,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   // Group lessons by module
   const lessonsByModule: Record<string, any[]> = {};
   lessons.forEach((lesson) => {
+    if (!lesson.moduleId) return;
     const mId = lesson.moduleId.toString();
     if (!lessonsByModule[mId]) lessonsByModule[mId] = [];
     lessonsByModule[mId].push(lesson);

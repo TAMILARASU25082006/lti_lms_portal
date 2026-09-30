@@ -71,6 +71,7 @@ export default async function StudentClassroomPage({ params, searchParams }: Cla
 
   const progressMap: Record<string, { isCompleted: boolean; videoPlaybackPositionSeconds: number }> = {};
   progressRecords.forEach((pr) => {
+    if (!pr.lessonId) return;
     progressMap[pr.lessonId.toString()] = {
       isCompleted: pr.isCompleted,
       videoPlaybackPositionSeconds: pr.videoPlaybackPositionSeconds || 0,
